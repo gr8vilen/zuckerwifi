@@ -1,0 +1,14 @@
+# Ignore build directories
+build/
+
+# Ignore sdkconfig backups and CI configuration files
+sdkconfig.old
+sdkconfig.ci
+dependencies.lock
+
+# Ignore reference projects/folders
+ref-project/
+managed_components/
+
+# Ignore OS files
+.DS_Store
