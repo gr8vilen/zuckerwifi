@@ -98,13 +98,21 @@ static void draw_status_bar(const char* text) {
 }
 
 // ===== Menu item definitions ===== //
+static const char* home_menu_items[] = {
+    "[games]",
+    "[Wifi]",
+    "[bluthoot]",
+};
+#define HOME_MENU_COUNT 3
+
 static const char* main_menu_items[] = {
     "> Scan",
     "> SSIDs",
     "> Attack",
     "> Info",
+    "< Back",
 };
-#define MAIN_MENU_COUNT 4
+#define MAIN_MENU_COUNT 5
 
 static const char* scan_menu_items[] = {
     "> Scan APs",
@@ -141,11 +149,21 @@ static void draw_intro(void) {
     oled_draw_str(10, 52, "Starting...", 1);
 }
 
+static void draw_home_menu(void) {
+    draw_header("69WIFI");
+    int count = HOME_MENU_COUNT < MAX_VISIBLE_LINES ? HOME_MENU_COUNT : MAX_VISIBLE_LINES;
+    for (int i = 0; i < count; i++) {
+        draw_menu_item(i, home_menu_items[i], i == s_cursor);
+    }
+}
+
 static void draw_main_menu(void) {
     draw_header("C3 Deauther");
-    int count = MAIN_MENU_COUNT < MAX_VISIBLE_LINES ? MAIN_MENU_COUNT : MAX_VISIBLE_LINES;
-    for (int i = 0; i < count; i++) {
-        draw_menu_item(i, main_menu_items[i], i == s_cursor);
+    int visible = MAIN_MENU_COUNT < MAX_VISIBLE_LINES ? MAIN_MENU_COUNT : MAX_VISIBLE_LINES;
+    for (int i = 0; i < visible; i++) {
+        int idx = i + s_scroll;
+        if (idx >= MAIN_MENU_COUNT) break;
+        draw_menu_item(i, main_menu_items[idx], idx == s_cursor);
     }
 }
 
@@ -323,15 +341,41 @@ static void draw_info(void) {
 
 // ===== Input handling per screen ===== //
 
+static void handle_input_home(bool up, bool down, bool sel) {
+    if (up && s_cursor > 0) s_cursor--;
+    if (down && s_cursor < HOME_MENU_COUNT - 1) s_cursor++;
+    if (sel) {
+        switch (s_cursor) {
+            case 0:
+                // [games]
+                break;
+            case 1:
+                // [Wifi] -> Enter WiFi tools menu
+                s_screen = UI_SCREEN_MAIN_MENU;
+                s_cursor = 0;
+                s_scroll = 0;
+                break;
+            case 2:
+                // [bluthoot]
+                break;
+        }
+    }
+}
+
 static void handle_input_main(bool up, bool down, bool sel) {
     if (up && s_cursor > 0) s_cursor--;
     if (down && s_cursor < MAIN_MENU_COUNT - 1) s_cursor++;
+
+    if (s_cursor < s_scroll) s_scroll = s_cursor;
+    if (s_cursor >= s_scroll + MAX_VISIBLE_LINES) s_scroll = s_cursor - MAX_VISIBLE_LINES + 1;
+
     if (sel) {
         switch (s_cursor) {
             case 0: s_screen = UI_SCREEN_SCAN_MENU; s_cursor = 0; s_scroll = 0; break;
-            case 1: s_screen = UI_SCREEN_SSID_MENU; s_cursor = 0; break;
+            case 1: s_screen = UI_SCREEN_SSID_MENU; s_cursor = 0; s_scroll = 0; break;
             case 2: s_screen = UI_SCREEN_ATTACK_MENU; s_cursor = 0; s_scroll = 0; break;
-            case 3: s_screen = UI_SCREEN_INFO; s_cursor = 0; break;
+            case 3: s_screen = UI_SCREEN_INFO; s_cursor = 0; s_scroll = 0; break;
+            case 4: s_screen = UI_SCREEN_HOME; s_cursor = 1; s_scroll = 0; break; // Go back to Home Screen with [Wifi] highlighted
         }
     }
 }
@@ -574,8 +618,9 @@ void display_update(void) {
     // Auto-transition from intro
     if (s_screen == UI_SCREEN_INTRO) {
         if (now - s_intro_time > DISPLAY_INTRO_MS * 1000LL) {
-            s_screen = UI_SCREEN_MAIN_MENU;
+            s_screen = UI_SCREEN_HOME;
             s_cursor = 0;
+            s_scroll = 0;
         }
     }
 
@@ -586,6 +631,7 @@ void display_update(void) {
 
     // Handle input per screen
     switch (s_screen) {
+        case UI_SCREEN_HOME:           handle_input_home(up, down, sel); break;
         case UI_SCREEN_MAIN_MENU:      handle_input_main(up, down, sel); break;
         case UI_SCREEN_SCAN_MENU:      handle_input_scan(up, down, sel); break;
         case UI_SCREEN_AP_LIST:        handle_input_ap_list(up, down, sel); break;
@@ -603,6 +649,7 @@ void display_update(void) {
 
     switch (s_screen) {
         case UI_SCREEN_INTRO:          draw_intro(); break;
+        case UI_SCREEN_HOME:           draw_home_menu(); break;
         case UI_SCREEN_MAIN_MENU:      draw_main_menu(); break;
         case UI_SCREEN_SCAN_MENU:      draw_scan_menu(); break;
         case UI_SCREEN_SCANNING:       draw_scanning(); break;

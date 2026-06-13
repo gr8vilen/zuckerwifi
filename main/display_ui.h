@@ -7,6 +7,7 @@
 
 typedef enum {
     UI_SCREEN_INTRO,
+    UI_SCREEN_HOME,
     UI_SCREEN_MAIN_MENU,
     UI_SCREEN_SCAN_MENU,
     UI_SCREEN_SCANNING,
