@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "main.c" "wifi_ctl.c" "attack.c" "display_ui.c"
+    SRCS "main.c" "wifi_ctl.c" "attack.c" "display_ui.c" "screensaver.c" "game_runner.c"
     PRIV_REQUIRES
         spi_flash
         esp_wifi
@@ -10,6 +10,7 @@ idf_component_register(
         driver
         esp_driver_gpio
         esp_driver_i2c
+        esp_driver_spi
         espressif__ssd1306
     INCLUDE_DIRS "."
 )

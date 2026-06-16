@@ -18,6 +18,8 @@ typedef enum {
     UI_SCREEN_ATTACK_RUNNING,
     UI_SCREEN_SSID_MENU,
     UI_SCREEN_INFO,
+    UI_SCREEN_SCREENSAVER,
+    UI_SCREEN_GAME_RUNNER,
 } ui_screen_t;
 
 void display_init(void);

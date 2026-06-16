@@ -26,7 +26,6 @@
 #include "wifi_ctl.h"
 #include "attack.h"
 #include "display_ui.h"
-
 static const char* TAG = "main";
 
 // ===== Serial CLI (basic) ===== //
@@ -210,7 +209,6 @@ void app_main(void) {
     wifi_ctl_init();
     attack_init();
     display_init();
-
     ESP_LOGI(TAG, "All modules initialized");
 
     // Start main loop task (display + attack updates)

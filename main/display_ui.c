@@ -9,6 +9,8 @@
 #include "config.h"
 #include "wifi_ctl.h"
 #include "attack.h"
+#include "screensaver.h"
+#include "game_runner.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -30,6 +32,8 @@ static int              s_scroll = 0;       // scroll offset for long lists
 static int64_t          s_intro_time = 0;
 static int64_t          s_last_draw = 0;
 static int              s_detail_idx = 0;   // selected AP/station index for detail view
+static int64_t          s_last_activity_time = 0;
+static ui_screen_t      s_prev_screen = UI_SCREEN_MAIN_MENU;
 
 // Button state
 static bool s_btn_up = false;
@@ -100,10 +104,9 @@ static void draw_status_bar(const char* text) {
 // ===== Menu item definitions ===== //
 static const char* home_menu_items[] = {
     "[games]",
-    "[Wifi]",
-    "[bluthoot]",
+    "[Wifi]"
 };
-#define HOME_MENU_COUNT 3
+#define HOME_MENU_COUNT 2
 
 static const char* main_menu_items[] = {
     "> Scan",
@@ -347,16 +350,16 @@ static void handle_input_home(bool up, bool down, bool sel) {
     if (sel) {
         switch (s_cursor) {
             case 0:
-                // [games]
+                // [games] -> Enter Dinosaur Runner game
+                s_screen = UI_SCREEN_GAME_RUNNER;
+                s_cursor = 0;
+                s_scroll = 0;
                 break;
             case 1:
                 // [Wifi] -> Enter WiFi tools menu
                 s_screen = UI_SCREEN_MAIN_MENU;
                 s_cursor = 0;
                 s_scroll = 0;
-                break;
-            case 2:
-                // [bluthoot]
                 break;
         }
     }
@@ -563,6 +566,8 @@ static void handle_input_info(bool up, bool down, bool sel) {
     }
 }
 
+// (bluejam code removed)
+
 // ===== Public API ===== //
 
 void display_init(void) {
@@ -602,6 +607,7 @@ void display_init(void) {
     s_screen = UI_SCREEN_INTRO;
     s_intro_time = esp_timer_get_time();
     s_last_draw = 0;
+    s_last_activity_time = esp_timer_get_time();
 
     ESP_LOGI(TAG, "Display initialized");
 }
@@ -629,23 +635,60 @@ void display_update(void) {
     bool down = button_pressed(BUTTON_DOWN_PIN, &s_btn_down, &s_btn_down_time);
     bool sel  = button_pressed(BUTTON_SELECT_PIN, &s_btn_sel, &s_btn_sel_time);
 
-    // Handle input per screen
-    switch (s_screen) {
-        case UI_SCREEN_HOME:           handle_input_home(up, down, sel); break;
-        case UI_SCREEN_MAIN_MENU:      handle_input_main(up, down, sel); break;
-        case UI_SCREEN_SCAN_MENU:      handle_input_scan(up, down, sel); break;
-        case UI_SCREEN_AP_LIST:        handle_input_ap_list(up, down, sel); break;
-        case UI_SCREEN_AP_DETAIL:      handle_input_ap_detail(up, down, sel); break;
-        case UI_SCREEN_STATION_LIST:   handle_input_station_list(up, down, sel); break;
-        case UI_SCREEN_ATTACK_MENU:    handle_input_attack(up, down, sel); break;
-        case UI_SCREEN_ATTACK_RUNNING: handle_input_attack_running(up, down, sel); break;
-        case UI_SCREEN_SSID_MENU:      handle_input_ssid(up, down, sel); break;
-        case UI_SCREEN_INFO:           handle_input_info(up, down, sel); break;
-        default: break;
+    if (up || down || sel) {
+        s_last_activity_time = now;
+        if (s_screen == UI_SCREEN_SCREENSAVER) {
+            // Wake up! Restore previous screen
+            s_screen = s_prev_screen;
+            // Consume key press to prevent triggering immediate actions on wakeup
+            goto draw_phase;
+        }
     }
 
+    // Auto-transition to screensaver after 20 seconds of inactivity
+    if (s_screen != UI_SCREEN_SCREENSAVER &&
+        s_screen != UI_SCREEN_INTRO &&
+        s_screen != UI_SCREEN_SCANNING &&
+        s_screen != UI_SCREEN_ATTACK_RUNNING) {
+        if (now - s_last_activity_time > 20000000LL) { // 20 seconds
+            s_prev_screen = s_screen;
+            s_screen = UI_SCREEN_SCREENSAVER;
+            screensaver_init();
+        }
+    }
+
+    // Handle input per screen
+    if (s_screen != UI_SCREEN_SCREENSAVER) {
+        switch (s_screen) {
+            case UI_SCREEN_HOME:           handle_input_home(up, down, sel); break;
+            case UI_SCREEN_MAIN_MENU:      handle_input_main(up, down, sel); break;
+            case UI_SCREEN_SCAN_MENU:      handle_input_scan(up, down, sel); break;
+            case UI_SCREEN_AP_LIST:        handle_input_ap_list(up, down, sel); break;
+            case UI_SCREEN_AP_DETAIL:      handle_input_ap_detail(up, down, sel); break;
+            case UI_SCREEN_STATION_LIST:   handle_input_station_list(up, down, sel); break;
+            case UI_SCREEN_ATTACK_MENU:    handle_input_attack(up, down, sel); break;
+            case UI_SCREEN_ATTACK_RUNNING: handle_input_attack_running(up, down, sel); break;
+            case UI_SCREEN_SSID_MENU:      handle_input_ssid(up, down, sel); break;
+            case UI_SCREEN_INFO:           handle_input_info(up, down, sel); break;
+            case UI_SCREEN_GAME_RUNNER:    game_runner_handle_input(up, down, sel); break;
+            default: break;
+        }
+    }
+
+draw_phase:
     // Clear and draw
     ssd1306_clear_screen(s_oled, 0x00);
+
+    // If game wants to exit
+    if (s_screen == UI_SCREEN_GAME_RUNNER && game_runner_should_exit()) {
+        s_screen = UI_SCREEN_HOME;
+        s_cursor = 0; s_scroll = 0;
+    }
+
+    if (s_screen == UI_SCREEN_GAME_RUNNER) {
+        // Run physics at full speed, decouple from draw limit if necessary, but here we just call it
+        game_runner_update();
+    }
 
     switch (s_screen) {
         case UI_SCREEN_INTRO:          draw_intro(); break;
@@ -660,6 +703,8 @@ void display_update(void) {
         case UI_SCREEN_ATTACK_RUNNING: draw_attack_running(); break;
         case UI_SCREEN_SSID_MENU:      draw_ssid_menu(); break;
         case UI_SCREEN_INFO:           draw_info(); break;
+        case UI_SCREEN_SCREENSAVER:    screensaver_draw(s_oled); break;
+        case UI_SCREEN_GAME_RUNNER:    game_runner_draw(s_oled); break;
     }
 
     ssd1306_refresh_gram(s_oled);

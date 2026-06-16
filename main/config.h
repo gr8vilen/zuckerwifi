@@ -18,6 +18,16 @@
 #define I2C_MASTER_SCL_IO      7   // SCL on GPIO 7
 #define I2C_MASTER_FREQ_HZ     400000
 
+// ===== NRF24L01+ SPI PINS (1x module supported, expandable to 2x) ===== //
+// Wiring: NRF VCC→3.3V, GND→GND
+#define NRF_CE_PIN             4   // GPIO 4  → NRF CE
+#define NRF_CSN_PIN            5   // GPIO 5  → NRF CSN (CS)
+#define NRF_SCK_PIN            8   // GPIO 8  → NRF SCK
+#define NRF_MISO_PIN           9   // GPIO 9  → NRF MISO
+#define NRF_MOSI_PIN           10  // GPIO 10 → NRF MOSI
+#define NRF_SPI_HOST           SPI2_HOST
+#define NRF_SPI_FREQ_HZ        4000000   // 4 MHz (very stable for nRF24L01+)
+
 #define OLED_WIDTH             128
 #define OLED_HEIGHT            64
 
