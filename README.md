@@ -1,53 +1,63 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-H21 | ESP32-H4 | ESP32-P4 | ESP32-S2 | ESP32-S3 | Linux |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | --------- | -------- | -------- | -------- | -------- | ----- |
+# ESP32-C3 WiFi Deauther
 
-# Hello World Example
+A feature-rich WiFi deauthentication tool built for the ESP32-C3 SuperMini. It includes a custom menu system, deep sleep capabilities to conserve battery, and interactive tools for network analysis.
 
-Starts a FreeRTOS task to print "Hello World".
+## Hardware Components
+- **ESP32-C3 SuperMini** (Microcontroller)
+- **SSD1306 0.96" OLED Display** (I2C)
+- **3x Tactile Push Buttons** (For navigation)
+- **TP4056 Module** (Lithium battery charging and protection)
+- **3.7V Li-Po / Li-Ion Battery**
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+---
 
-## How to use example
+## Pin Layout & Connections
 
-Follow detailed instructions provided specifically for this example.
+### 1. Power & Battery Management (TP4056)
+The TP4056 handles charging the battery via USB-C and provides safe power output to the ESP32-C3.
 
-Select the instructions depending on Espressif chip installed on your development board:
+| TP4056 Pin | Connection |
+| :--- | :--- |
+| **B+** | Battery Positive (+) |
+| **B-** | Battery Negative (-) |
+| **OUT+** | ESP32-C3 **5V** (or VBUS) Pin |
+| **OUT-** | ESP32-C3 **GND** Pin |
 
-- [ESP32 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/stable/get-started/index.html)
-- [ESP32-S2 Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/get-started/index.html)
+> [!CAUTION]
+> Ensure you connect the battery to `B+` and `B-` correctly. Reversing polarity on a Li-Po battery can be dangerous.
 
+### 2. SSD1306 OLED Display (I2C)
+| OLED Pin | ESP32-C3 Pin |
+| :--- | :--- |
+| **VCC** | 3.3V |
+| **GND** | GND |
+| **SCL** | GPIO 7 |
+| **SDA** | GPIO 6 |
 
-## Example folder contents
+### 3. Navigation Buttons
+The buttons use the ESP32-C3's internal pull-up resistors. Connect one side of each button to the respective GPIO pin, and the other side to ground.
 
-The project **hello_world** contains one source file in C language [hello_world_main.c](main/hello_world_main.c). The file is located in folder [main](main).
+| Button | ESP32-C3 Pin | Connection |
+| :--- | :--- | :--- |
+| **UP** | GPIO 0 | Button -> GND |
+| **DOWN** | GPIO 1 | Button -> GND |
+| **SELECT** | GPIO 2 | Button -> GND |
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt` files that provide set of directives and instructions describing the project's source files and targets (executable, library, or both).
+### 4. NRF24L01+ (Optional / Experimental)
+If you plan to wire up the external NRF module for extended capabilities:
 
-Below is short explanation of remaining files in the project folder.
+| NRF24L01+ | ESP32-C3 Pin |
+| :--- | :--- |
+| **VCC** | 3.3V |
+| **GND** | GND |
+| **CE** | GPIO 4 |
+| **CSN** | GPIO 5 |
+| **SCK** | GPIO 8 |
+| **MISO** | GPIO 9 |
+| **MOSI** | GPIO 10 |
 
-```
-├── CMakeLists.txt
-├── pytest_hello_world.py      Python script used for automated testing
-├── main
-│   ├── CMakeLists.txt
-│   └── hello_world_main.c
-└── README.md                  This is the file you are currently reading
-```
+---
 
-For more information on structure and contents of ESP-IDF projects, please refer to Section [Build System](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/build-system.html) of the ESP-IDF Programming Guide.
-
-## Troubleshooting
-
-* Program upload failure
-
-    * Hardware connection is not correct: run `idf.py -p PORT monitor`, and reboot your board to see if there are any output logs.
-    * The baud rate for downloading is too high: lower your baud rate in the `menuconfig` menu, and try again.
-
-## Technical support and feedback
-
-Please use the following feedback channels:
-
-* For technical queries, go to the [esp32.com](https://esp32.com/) forum
-* For a feature request or bug report, create a [GitHub issue](https://github.com/espressif/esp-idf/issues)
-
-We will get back to you as soon as possible.
+## Power Saving Features
+The device is designed to be battery-efficient. If no attack or scan is running and the device is idle for 60 seconds, it will automatically enter **Deep Sleep Mode**. 
+To wake the device back up, simply press **any** of the 3 navigation buttons.

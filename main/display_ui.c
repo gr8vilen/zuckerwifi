@@ -20,6 +20,7 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_sleep.h"
 #include "ssd1306.h"
 
 static const char* TAG = "display";
@@ -654,6 +655,44 @@ void display_update(void) {
             s_prev_screen = s_screen;
             s_screen = UI_SCREEN_SCREENSAVER;
             screensaver_init();
+        }
+    }
+
+    // Auto-transition to deep sleep after 60 seconds of inactivity
+    if (s_screen != UI_SCREEN_INTRO &&
+        s_screen != UI_SCREEN_SCANNING &&
+        s_screen != UI_SCREEN_ATTACK_RUNNING) {
+        if (now - s_last_activity_time > 60000000LL) { // 60 seconds
+            ESP_LOGI(TAG, "Entering deep sleep due to inactivity...");
+
+            // Clear the display so it doesn't burn in while sleeping
+            ssd1306_clear_screen(s_oled, 0x00);
+            ssd1306_refresh_gram(s_oled);
+
+            // Enable internal pull-ups for the buttons during deep sleep to prevent 
+            // floating pins which causes false wake-ups and battery drain
+            gpio_sleep_set_direction(BUTTON_UP_PIN, GPIO_MODE_INPUT);
+            gpio_sleep_set_pull_mode(BUTTON_UP_PIN, GPIO_PULLUP_ONLY);
+            gpio_sleep_set_direction(BUTTON_DOWN_PIN, GPIO_MODE_INPUT);
+            gpio_sleep_set_pull_mode(BUTTON_DOWN_PIN, GPIO_PULLUP_ONLY);
+            gpio_sleep_set_direction(BUTTON_SELECT_PIN, GPIO_MODE_INPUT);
+            gpio_sleep_set_pull_mode(BUTTON_SELECT_PIN, GPIO_PULLUP_ONLY);
+
+            // Configure wakeup pins for Deep Sleep on ESP32-C3
+            // In deep sleep, the HP peripheral domain powers down, so we MUST use this specific API
+            uint64_t wake_pins = (1ULL << BUTTON_UP_PIN) | 
+                                 (1ULL << BUTTON_DOWN_PIN) | 
+                                 (1ULL << BUTTON_SELECT_PIN);
+            esp_sleep_enable_gpio_wakeup_on_hp_periph_powerdown(wake_pins, ESP_GPIO_WAKEUP_GPIO_LOW);
+
+            // Turn off onboard blue LED (GPIO8 on C3 SuperMini)
+            // The SuperMini LED is active-HIGH, so pulling it UP was turning it on!
+            // We must set it to floating or pull-down to keep it off.
+            gpio_sleep_set_direction(GPIO_NUM_8, GPIO_MODE_DISABLE);
+            gpio_sleep_set_pull_mode(GPIO_NUM_8, GPIO_PULLDOWN_ONLY);
+
+            // Enter deep sleep
+            esp_deep_sleep_start();
         }
     }
 
